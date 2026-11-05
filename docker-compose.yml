@@ -1,0 +1,18 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: clothesshop
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./clotesShop/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ./clotesShop/seed.sql:/docker-entrypoint-initdb.d/02_seed.sql:ro
+      - ./clotesShop/images.sql:/docker-entrypoint-initdb.d/03_images.sql:ro
+      - ./clotesShop/members.sql:/docker-entrypoint-initdb.d/04_members.sql:ro
+
+volumes:
+  pgdata:
