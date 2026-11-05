@@ -135,4 +135,17 @@ CREATE TABLE chat_messages (
 
 CREATE INDEX idx_chat_thread ON chat_messages (product_id, buyer_id, created_at);
 
+-- คำขอเปิดร้าน ผู้ซื้อยื่นได้คนละหนึ่งเรื่องที่ยังรออนุมัติ
+CREATE TABLE seller_applications (
+    id         BIGSERIAL    PRIMARY KEY,
+    member_id  BIGINT       NOT NULL REFERENCES members (id) ON DELETE CASCADE,
+    shop_name  VARCHAR(80)  NOT NULL CHECK (char_length(btrim(shop_name)) >= 1),
+    status     VARCHAR(20)  NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved')),
+    created_at TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX uq_seller_app_pending
+    ON seller_applications (member_id)
+    WHERE status = 'pending';
+
 COMMIT;

@@ -69,3 +69,15 @@ CREATE TABLE IF NOT EXISTS chat_messages (
     created_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_chat_thread ON chat_messages (product_id, buyer_id, created_at);
+
+CREATE TABLE IF NOT EXISTS seller_applications (
+    id         BIGSERIAL    PRIMARY KEY,
+    member_id  BIGINT       NOT NULL REFERENCES members (id) ON DELETE CASCADE,
+    shop_name  VARCHAR(80)  NOT NULL CHECK (char_length(btrim(shop_name)) >= 1),
+    status     VARCHAR(20)  NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved')),
+    created_at TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_seller_app_pending
+    ON seller_applications (member_id)
+    WHERE status = 'pending';

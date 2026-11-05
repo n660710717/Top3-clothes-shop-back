@@ -8,7 +8,10 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-var ErrEmailTaken = errors.New("email taken")
+var (
+	ErrEmailTaken     = errors.New("email taken")
+	ErrAlreadyApplied = errors.New("already applied")
+)
 
 type Member struct {
 	ID           int64  `json:"id"`
