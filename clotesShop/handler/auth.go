@@ -55,7 +55,9 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		internal(w, err)
 		return
 	}
-	m, err := h.Store.CreateMember(r.Context(), email, hash, name, role)
+	// ผู้ขายใหม่ยังเป็นผู้ซื้อ จนกว่าผู้ดูแลจะอนุมัติคำขอเปิดร้าน
+	memberRole := "buyer"
+	m, err := h.Store.CreateMember(r.Context(), email, hash, name, memberRole)
 	if errors.Is(err, store.ErrEmailTaken) {
 		writeError(w, http.StatusConflict, "EMAIL_TAKEN", "อีเมลนี้มีบัญชีอยู่แล้ว")
 		return
@@ -63,6 +65,12 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		internal(w, err)
 		return
+	}
+	if role == "seller" {
+		if err := h.Store.CreateSellerApplication(r.Context(), m.ID, name); err != nil {
+			internal(w, err)
+			return
+		}
 	}
 	writeJSON(w, http.StatusCreated, m)
 }
