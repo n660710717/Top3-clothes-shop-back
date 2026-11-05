@@ -59,4 +59,80 @@ CREATE TABLE members (
 
 CREATE UNIQUE INDEX uq_members_email ON members (lower(email));
 
+-- สินค้าแต่ละชิ้นเป็นของร้านผู้ขายคนหนึ่ง
+ALTER TABLE products
+    ADD COLUMN seller_id BIGINT REFERENCES members (id);
+
+-- ---------------------------------------------------------------------------
+-- ข้อมูลที่ต้องแยกตามสมาชิก เลขสมาชิกมาจากตั๋ว ไม่รับจากหน้าเว็บ
+-- ---------------------------------------------------------------------------
+CREATE TABLE wishlists (
+    member_id   BIGINT      NOT NULL REFERENCES members (id) ON DELETE CASCADE,
+    product_id  BIGINT      NOT NULL REFERENCES products (id) ON DELETE CASCADE,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (member_id, product_id)
+);
+
+CREATE TABLE reviews (
+    id          BIGSERIAL    PRIMARY KEY,
+    product_id  BIGINT       NOT NULL REFERENCES products (id) ON DELETE CASCADE,
+    member_id   BIGINT       NOT NULL REFERENCES members (id) ON DELETE CASCADE,
+    rating      SMALLINT     NOT NULL CHECK (rating BETWEEN 1 AND 5),
+    comment     TEXT         NOT NULL CHECK (char_length(btrim(comment)) >= 1),
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    UNIQUE (member_id, product_id)
+);
+
+CREATE INDEX idx_reviews_product ON reviews (product_id, created_at DESC);
+
+CREATE TABLE carts (
+    member_id   BIGINT      NOT NULL REFERENCES members (id) ON DELETE CASCADE,
+    product_id  BIGINT      NOT NULL REFERENCES products (id) ON DELETE CASCADE,
+    size        VARCHAR(20) NOT NULL,
+    quantity    INTEGER     NOT NULL CHECK (quantity > 0),
+    PRIMARY KEY (member_id, product_id, size)
+);
+
+CREATE TABLE orders (
+    id         BIGSERIAL    PRIMARY KEY,
+    buyer_id   BIGINT       NOT NULL REFERENCES members (id),
+    total      INTEGER      NOT NULL CHECK (total >= 0),
+    created_at TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+CREATE TABLE order_items (
+    id           BIGSERIAL    PRIMARY KEY,
+    order_id     BIGINT       NOT NULL REFERENCES orders (id) ON DELETE CASCADE,
+    product_id   BIGINT       REFERENCES products (id) ON DELETE SET NULL,
+    seller_id    BIGINT       NOT NULL REFERENCES members (id),
+    product_name VARCHAR(255) NOT NULL,
+    size         VARCHAR(20)  NOT NULL,
+    quantity     INTEGER      NOT NULL CHECK (quantity > 0),
+    unit_price   INTEGER      NOT NULL CHECK (unit_price >= 0),
+    status       VARCHAR(30)  NOT NULL DEFAULT 'รอการจัดส่ง',
+    tracking_no  VARCHAR(50)  NOT NULL DEFAULT ''
+);
+
+CREATE INDEX idx_order_items_seller ON order_items (seller_id);
+
+CREATE TABLE disputes (
+    id          BIGSERIAL    PRIMARY KEY,
+    product_id  BIGINT       REFERENCES products (id) ON DELETE SET NULL,
+    buyer_id    BIGINT       NOT NULL REFERENCES members (id),
+    reason      TEXT         NOT NULL CHECK (char_length(btrim(reason)) >= 1),
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    resolved    BOOLEAN      NOT NULL DEFAULT FALSE
+);
+
+CREATE TABLE chat_messages (
+    id          BIGSERIAL    PRIMARY KEY,
+    product_id  BIGINT       NOT NULL REFERENCES products (id) ON DELETE CASCADE,
+    buyer_id    BIGINT       NOT NULL REFERENCES members (id) ON DELETE CASCADE,
+    sender      VARCHAR(10)  NOT NULL CHECK (sender IN ('user', 'seller')),
+    body        TEXT         NOT NULL CHECK (char_length(btrim(body)) >= 1),
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_chat_thread ON chat_messages (product_id, buyer_id, created_at);
+
 COMMIT;

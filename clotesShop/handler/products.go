@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 
+	"clotesShop/mw"
 	"clotesShop/store"
 )
 
@@ -34,13 +35,24 @@ func (h *Handler) GetProduct(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, item)
 }
 
+func (h *Handler) ListMyProducts(w http.ResponseWriter, r *http.Request) {
+	who := mw.WhoFrom(r.Context())
+	items, err := h.Store.ListProductsBySeller(r.Context(), who.ID)
+	if err != nil {
+		internal(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"items": items})
+}
+
 func (h *Handler) DeleteProduct(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(r, "id")
 	if !ok {
 		writeError(w, http.StatusBadRequest, "BAD_ID", "เลขสินค้าต้องเป็นตัวเลข")
 		return
 	}
-	err := h.Store.DeleteProduct(r.Context(), id)
+	who := mw.WhoFrom(r.Context())
+	err := h.Store.DeleteProduct(r.Context(), id, who.ID)
 	if errors.Is(err, store.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "PRODUCT_NOT_FOUND", "ไม่พบสินค้านี้")
 		return

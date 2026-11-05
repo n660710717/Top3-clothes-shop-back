@@ -68,8 +68,28 @@ func (s *Store) ProductByID(ctx context.Context, id int64) (Product, error) {
 	return p, err
 }
 
-func (s *Store) DeleteProduct(ctx context.Context, id int64) error {
-	tag, err := s.Pool.Exec(ctx, `DELETE FROM products WHERE id = $1`, id)
+func (s *Store) ListProductsBySeller(ctx context.Context, sellerID int64) ([]Product, error) {
+	rows, err := s.Pool.Query(ctx, productSelect+`
+ WHERE p.seller_id = $1
+ GROUP BY p.id, i.image_url
+ ORDER BY p.id`, sellerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []Product{}
+	for rows.Next() {
+		p, err := scanProduct(rows.Scan)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) DeleteProduct(ctx context.Context, id, sellerID int64) error {
+	tag, err := s.Pool.Exec(ctx, `DELETE FROM products WHERE id = $1 AND seller_id = $2`, id, sellerID)
 	if err != nil {
 		return err
 	}

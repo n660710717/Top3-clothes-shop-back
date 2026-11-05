@@ -13,6 +13,7 @@ services:
       - ./clotesShop/seed.sql:/docker-entrypoint-initdb.d/02_seed.sql:ro
       - ./clotesShop/images.sql:/docker-entrypoint-initdb.d/03_images.sql:ro
       - ./clotesShop/members.sql:/docker-entrypoint-initdb.d/04_members.sql:ro
+      - ./clotesShop/user_scope.sql:/docker-entrypoint-initdb.d/05_user_scope.sql:ro
 
 volumes:
   pgdata:
