@@ -523,7 +523,7 @@ func (s *Store) UpdateProduct(ctx context.Context, id, sellerID int64, in Produc
 	defer tx.Rollback(ctx)
 	tag, err := tx.Exec(ctx, `
 UPDATE products
-   SET name = $3, title = $3, category = $4, price = $5, stock = $6, description = $3
+   SET name = $3, title = $3, category = $4, price = $5, stock = $6
  WHERE id = $1 AND seller_id = $2`, id, sellerID, in.Name, in.Category, in.Price, in.Stock)
 	if err != nil {
 		return Product{}, err

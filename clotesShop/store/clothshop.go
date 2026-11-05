@@ -18,19 +18,23 @@ type Product struct {
 	Description string   `json:"description"`
 	Image       string   `json:"image"`
 	ImageURL    string   `json:"image_url"`
+	Rating      *float64 `json:"rating"`
+	ReviewCount int      `json:"reviewCount"`
 }
 
 const productSelect = `
 SELECT p.id, p.name, p.title, p.category, p.price, p.stock, p.description,
        COALESCE(i.image_url, ''),
-       COALESCE(array_agg(s.size ORDER BY s.position) FILTER (WHERE s.size IS NOT NULL), '{}')
+       COALESCE(array_agg(s.size ORDER BY s.position) FILTER (WHERE s.size IS NOT NULL), '{}'),
+       (SELECT ROUND(AVG(rv.rating)::numeric, 1)::float8 FROM reviews rv WHERE rv.product_id = p.id),
+       (SELECT COUNT(*) FROM reviews rv WHERE rv.product_id = p.id)
   FROM products p
   LEFT JOIN product_images i ON i.product_id = p.id
   LEFT JOIN product_sizes s ON s.product_id = p.id`
 
 func scanProduct(scan func(dest ...any) error) (Product, error) {
 	var p Product
-	err := scan(&p.ID, &p.Name, &p.Title, &p.Category, &p.Price, &p.Stock, &p.Description, &p.Image, &p.Sizes)
+	err := scan(&p.ID, &p.Name, &p.Title, &p.Category, &p.Price, &p.Stock, &p.Description, &p.Image, &p.Sizes, &p.Rating, &p.ReviewCount)
 	if p.Sizes == nil {
 		p.Sizes = []string{}
 	}
