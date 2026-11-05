@@ -18,12 +18,12 @@ type Member struct {
 	PasswordHash string `json:"-"`
 }
 
-func (s *Store) CreateMember(ctx context.Context, email, hash, name string) (Member, error) {
-	m := Member{Email: email, DisplayName: name}
+func (s *Store) CreateMember(ctx context.Context, email, hash, name, role string) (Member, error) {
+	m := Member{Email: email, DisplayName: name, Role: role}
 	err := s.Pool.QueryRow(ctx,
-		`INSERT INTO members (email, password_hash, display_name)
-         VALUES ($1, $2, $3)
-         RETURNING id, role`, email, hash, name).Scan(&m.ID, &m.Role)
+		`INSERT INTO members (email, password_hash, display_name, role)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id, role`, email, hash, name, role).Scan(&m.ID, &m.Role)
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 		return Member{}, ErrEmailTaken
@@ -59,4 +59,28 @@ func (s *Store) ListMembers(ctx context.Context) ([]Member, error) {
 		out = append(out, m)
 	}
 	return out, rows.Err()
+}
+
+func (s *Store) MemberByID(ctx context.Context, id int64) (Member, error) {
+	var m Member
+	err := s.Pool.QueryRow(ctx,
+		`SELECT id, email, display_name, role, password_hash
+         FROM members WHERE id = $1`, id).
+		Scan(&m.ID, &m.Email, &m.DisplayName, &m.Role, &m.PasswordHash)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Member{}, ErrNotFound
+	}
+	return m, err
+}
+
+func (s *Store) UpdatePassword(ctx context.Context, id int64, hash string) error {
+	tag, err := s.Pool.Exec(ctx,
+		`UPDATE members SET password_hash = $2, updated_at = now() WHERE id = $1`, id, hash)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
 }

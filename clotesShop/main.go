@@ -52,6 +52,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/auth/register", h.Register)
 	mux.HandleFunc("POST /api/auth/login", h.Login)
+	mux.HandleFunc("PUT /api/me/password", login(h.ChangePassword))
 	mux.HandleFunc("GET /api/products", h.ListProducts)
 	mux.HandleFunc("GET /api/products/{id}", h.GetProduct)
 	mux.HandleFunc("GET /api/seller/products", seller(h.ListProducts))

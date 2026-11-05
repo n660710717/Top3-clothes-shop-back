@@ -8,6 +8,7 @@ import (
 	"unicode/utf8"
 
 	"clotesShop/auth"
+	"clotesShop/mw"
 	"clotesShop/store"
 )
 
@@ -15,6 +16,7 @@ type registerReq struct {
 	Email       string `json:"email"`
 	Password    string `json:"password"`
 	DisplayName string `json:"displayName"`
+	Role        string `json:"role"`
 }
 
 type loginReq struct {
@@ -30,6 +32,10 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 	email := strings.ToLower(strings.TrimSpace(req.Email))
 	name := strings.TrimSpace(req.DisplayName)
+	role := req.Role
+	if role == "" {
+		role = "buyer"
+	}
 	switch {
 	case !strings.Contains(email, "@") || len(email) > 255:
 		writeError(w, http.StatusBadRequest, "BAD_EMAIL", "รูปแบบอีเมลไม่ถูกต้อง")
@@ -40,13 +46,16 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	case name == "" || utf8.RuneCountInString(name) > 50:
 		writeError(w, http.StatusBadRequest, "BAD_NAME", "ต้องมีชื่อที่แสดง และยาวไม่เกิน 50 ตัวอักษร")
 		return
+	case role != "buyer" && role != "seller":
+		writeError(w, http.StatusBadRequest, "BAD_ROLE", "สมัครได้เฉพาะ buyer หรือ seller")
+		return
 	}
 	hash, err := auth.HashPassword(req.Password)
 	if err != nil {
 		internal(w, err)
 		return
 	}
-	m, err := h.Store.CreateMember(r.Context(), email, hash, name)
+	m, err := h.Store.CreateMember(r.Context(), email, hash, name, role)
 	if errors.Is(err, store.ErrEmailTaken) {
 		writeError(w, http.StatusConflict, "EMAIL_TAKEN", "อีเมลนี้มีบัญชีอยู่แล้ว")
 		return
@@ -84,4 +93,45 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"token": token, "member": m})
+}
+
+type passwordReq struct {
+	OldPassword string `json:"oldPassword"`
+	NewPassword string `json:"newPassword"`
+}
+
+func (h *Handler) ChangePassword(w http.ResponseWriter, r *http.Request) {
+	var req passwordReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "BAD_JSON", "อ่านกล่อง JSON ไม่ออก")
+		return
+	}
+	if utf8.RuneCountInString(req.NewPassword) < 8 || len(req.NewPassword) > 72 {
+		writeError(w, http.StatusBadRequest, "BAD_PASSWORD", "รหัสผ่านต้องยาว 8 ตัวอักษรขึ้นไป และไม่เกิน 72 ไบต์")
+		return
+	}
+	who := mw.WhoFrom(r.Context())
+	m, err := h.Store.MemberByID(r.Context(), who.ID)
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusUnauthorized, "LOGIN_REQUIRED", "กรุณาเข้าสู่ระบบก่อน")
+		return
+	}
+	if err != nil {
+		internal(w, err)
+		return
+	}
+	if !auth.CheckPassword(m.PasswordHash, req.OldPassword) {
+		writeError(w, http.StatusUnauthorized, "BAD_CREDENTIALS", "รหัสผ่านปัจจุบันไม่ถูกต้อง")
+		return
+	}
+	hash, err := auth.HashPassword(req.NewPassword)
+	if err != nil {
+		internal(w, err)
+		return
+	}
+	if err := h.Store.UpdatePassword(r.Context(), who.ID, hash); err != nil {
+		internal(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
